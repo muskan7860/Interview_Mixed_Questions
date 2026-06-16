@@ -105,4 +105,106 @@ This tests if you can navigate a Linux server confidently without hand-holding �
 
 ---
 
-*[End of Batch 1 — Q1 to Q5. Once these feel solid, say "next batch" and I'll give Q6-10.]*
+# LINUX — TOP 20 INTERVIEW QUESTIONS — BATCH 2 (Q6-10)
+*Same story-style format: Easy Explanation → What Interviewer is Testing → Interview Answer*
+
+---
+
+## Q6. What's the difference between a Process and a Thread?
+
+### Easy Explanation — The School Story
+Think of a **Process** as an entire separate school building — School A has its own classrooms, its own staff room, its own store room, its own gate, completely separate from School B next door. If School A catches fire, School B is totally unaffected, because nothing is shared between them.
+
+A **Thread** is like a teacher working INSIDE one school building. You can have multiple teachers (threads) in the SAME school, all sharing the SAME staff room, SAME store room, SAME supplies (this shared space is called "memory"). They can pass notes to each other instantly because they're in the same building — much faster coordination than calling a teacher in a different school entirely.
+
+But here's the catch: if one teacher in School A causes a fire in the shared staff room, it can affect ALL the other teachers in that SAME school, because they share the same space. Meanwhile, School B (a different process) remains completely safe.
+
+**Why this matters in real DevOps work:** This is exactly why a crashing thread inside one application can sometimes crash the WHOLE application, but a crashing process (like one Docker container) doesn't affect other separate containers running on the same machine — because containers are built around process-level isolation, the "separate school building" model.
+
+### What the Interviewer is Testing
+They want to confirm you understand basic operating system fundamentals — not just "I ran commands I copied from a tutorial," but "I actually understand what's happening underneath." This question often leads naturally into discussing why containers provide strong isolation, or why an application's memory usage behaves a certain way.
+
+### How to Answer in Interview
+> "A process is an independent unit of execution with its own dedicated memory space, completely isolated from other processes. A thread is a smaller unit of execution that runs WITHIN a process, and multiple threads in the same process share that process's memory space — which makes communication between them fast, but also means one misbehaving thread can affect the entire process. This concept is directly relevant in DevOps because containers are built on process-level isolation — that's exactly why one container crashing doesn't bring down other containers on the same host, the same way one school building catching fire doesn't affect the building next door."
+
+---
+
+## Q7. How do you check and stop (kill) a process by name or PID?
+
+### Easy Explanation — The School Story
+Every student in the school is given a unique roll number — that's exactly what a **PID (Process ID)** is for every running program on Linux. If a particular student is misbehaving in class (a process is frozen or eating up resources), the teacher first needs to find that student's roll number before doing anything.
+
+`ps aux | grep <name>` is like the teacher asking the school office: "Show me every student named Rahul" — it searches through everyone currently in the school and shows you their roll numbers (PIDs).
+
+`kill <PID>` is the teacher **politely** telling that student: "Please finish what you're doing and leave the classroom calmly." This is signal 15 (SIGTERM) — a graceful request that gives the process a chance to save its work, close files properly, and exit cleanly.
+
+`kill -9 <PID>` is NOT polite at all — it's like calling security to physically drag the student out immediately, no warning, no chance to pack their bag. This is signal 9 (SIGKILL) — the operating system terminates the process instantly, without letting it clean up. If that student (process) was in the middle of writing something important (like a database mid-save), forcing them out abruptly can leave things half-finished or corrupted.
+
+**The senior-level instinct:** always try the polite request (`kill`) first, and only escalate to the forceful drag-out (`kill -9`) if the process refuses to respond after a few seconds.
+
+### What the Interviewer is Testing
+This question is a trap for juniors who jump straight to `kill -9` as their go-to answer. That's actually a red flag — it tells the interviewer you don't think about consequences. They want to hear that you understand graceful vs forceful termination and WHY the order matters.
+
+### How to Answer in Interview
+> "I'd use `ps aux | grep <process-name>` to find the PID, or `pgrep <name>` for a quicker lookup. To stop it, I'd first try `kill <PID>`, which sends SIGTERM — a graceful shutdown signal that allows the process to clean up properly, like closing open file handles or completing a database write. Only if the process doesn't respond after a few seconds would I escalate to `kill -9`, which sends SIGKILL and forcefully terminates it immediately. I treat that as a last resort, since it can leave things in an inconsistent state — especially risky for stateful services like databases that might be mid-write."
+
+---
+
+## Q8. What is a Zombie process and an Orphan process?
+
+### Easy Explanation — The School Story
+Imagine a teacher (parent process) assigns homework to a student (child process). The student finishes the homework and submits it on the teacher's desk: "I'm done, here's my completed work." But the teacher is busy with something else and hasn't actually picked up and reviewed that submission yet. The student has technically finished their task, but their "completion report" is just sitting there, unprocessed. That student is now a **Zombie process** — finished working, but not yet acknowledged/cleaned up by the parent.
+
+An **Orphan process** is the opposite situation — the student is STILL working on their homework, but their teacher suddenly resigns and leaves the school (parent process dies) before the student is done. The student doesn't have a teacher anymore to report to. So the Principal (PID 1, systemd) automatically steps in and "adopts" that student, becoming their new responsible authority until they finish.
+
+**Why this matters:** A few zombie students sitting around occasionally is completely normal and harmless — every school has a few. But if you see HUNDREDS of zombie students piling up every single day, it means there's a real problem — a teacher (the parent application) has a bug and isn't properly reviewing/clearing finished students' work. This is a genuine production issue, and the fix is often restarting the parent application so it starts properly cleaning up after itself again.
+
+### What the Interviewer is Testing
+This is a "do you actually understand Linux internals, or did you just memorize `kill -9` from a YouTube video" filter question. Most junior candidates have never even heard the term "zombie process." Knowing this signals real depth of understanding, not surface-level memorization.
+
+### How to Answer in Interview
+> "A zombie process is one that has finished executing, but its parent hasn't yet called `wait()` to read its exit status, so it remains in the process table with a 'Z' state until the parent acknowledges it. A few zombies are completely normal and harmless. An orphan process is the reverse — its parent died before the child finished, so the child gets re-parented to PID 1 or systemd, which takes over as its new parent. I'd be concerned if I saw a large, continuously growing number of zombies — that usually points to a bug in the parent application not properly reaping its children, and I'd flag that to the development team, since restarting the parent process is often the practical fix."
+
+---
+
+## Q9. What's the Linux Directory Structure? (`/etc`, `/var`, `/usr`, `/tmp`, `/home`)
+
+### Easy Explanation — The School Story
+Think of the entire Linux filesystem as one big school building, where every floor has ONE specific, well-known purpose — and every Linux school in the world is built with the exact same floor plan, so any teacher (engineer) can walk into ANY Linux school and immediately know where everything is.
+
+- **`/etc`** — the **Principal's office / rule book floor**. This is where all the official rules and settings are kept — how the canteen should operate, who's allowed in which room. In Linux terms, this is where almost ALL configuration files live (`/etc/nginx/nginx.conf`, `/etc/passwd` for user accounts). If you want to CHANGE how something behaves, you go here.
+- **`/var`** — the **store room that keeps filling up**. "Var" stands for "variable" — meaning the contents constantly grow as the school runs day to day: daily attendance records (logs in `/var/log`), the cafeteria's used-up supplies (cache), exam answer sheets piling up (databases). This is the #1 floor that fills up and causes "we're out of space" problems.
+- **`/usr`** — the **library / textbook floor**. Most of the actual installed programs and their supporting materials live here (`/usr/bin`, `/usr/lib`). Despite sounding like "user," it's not personal files — it actually stands for "Unix System Resources."
+- **`/tmp`** — the **scratch notebook floor**. Temporary notes any student/teacher can quickly jot down and discard — gets wiped clean when the school restarts for a new term (reboot). Never store anything important here.
+- **`/home`** — **each student's personal locker**. `/home/yourname` is your own personal space, similar to "My Documents" — your own files, separate from the school's shared resources.
+
+**The instinct to build:** Disk full? Check `/var` first — it's almost always the cause. App misbehaving? Check its rule book in `/etc`. Need to know if a tool/program is installed? Look in `/usr/bin`.
+
+### What the Interviewer is Testing
+They want to know if you can navigate ANY Linux server confidently without hand-holding, even one you've never seen before — a very practical "have you actually worked hands-on with real servers" filter.
+
+### How to Answer in Interview
+> "`/etc` holds configuration files for the system and installed applications — that's where I'd go to change how something behaves. `/var` holds variable data that grows over time — logs, caches, spool files — and it's the most common place disk space issues come from, so it's usually my first stop when troubleshooting a full disk. `/usr` contains installed programs and their supporting libraries. `/tmp` is for temporary files that don't need to persist, and most systems clear it on reboot. `/home` holds individual users' personal files. Knowing this layout helps me navigate any Linux server quickly, even one I've never touched before."
+
+---
+
+## Q10. What's the difference between a Soft Link (Symbolic Link) and a Hard Link?
+
+### Easy Explanation — The School Story
+Imagine a student named Rahul has a locker (the actual file/data) somewhere in the school. The locker number on the door is like the "file name" — it's just a label pointing to where the actual stuff is kept.
+
+A **Hard Link** is like putting up a SECOND nameplate on a COMPLETELY DIFFERENT door, but that door secretly opens into the exact SAME locker space as Rahul's original door. Both nameplates are EQUALLY real and official — there's no "original" vs "copy," they're both genuine entrances to the same storage. If you remove ONE nameplate/door, the locker contents are still safe, because the other door still leads to it. BUT, you can't do this trick across two different school buildings (filesystems), and you can't make a hard link to an entire room/section (a directory) — only to individual lockers (files).
+
+A **Soft Link (Symbolic Link / Symlink)** is completely different — it's like a small sticky note pinned to a wall saying "Rahul's locker is actually in Room 204, Building B." This sticky note isn't a real door at all — it's just a pointer, a note with directions. It CAN point across different buildings (filesystems), and it CAN point to an entire room (a directory), not just one locker. But if Rahul's actual locker gets removed or moved somewhere else, that sticky note now points to nothing — it becomes a "dangling" note pointing at an empty wall.
+
+**Why this matters practically:** Hard links are rarely used day-to-day, but symlinks are EXTREMELY common in DevOps — for example, pointing `/usr/bin/python` to `/usr/bin/python3.11`, so when you upgrade Python versions, you just update the symlink instead of moving actual files around.
+
+### What the Interviewer is Testing
+This is a fundamentals check — they want to see if you understand HOW Linux actually stores and references files underneath, which becomes relevant when discussing things like Docker image layers, software version management, or why deleting a "linked" file sometimes doesn't free up disk space the way you'd expect.
+
+### How to Answer in Interview
+> "A hard link is another directory entry pointing to the exact same inode as the original file — they're indistinguishable from each other, there's no original versus copy. Deleting one doesn't affect the other, since the actual data is only removed when ALL hard links to it are deleted. It can't span across filesystems and can't point to a directory. A symbolic link is a completely separate, small file that just stores a path to the target — it CAN cross filesystems and CAN point to a directory, but if the target is deleted or moved, the symlink becomes a dangling reference pointing to nothing. In practice, I use symlinks far more often — for example, managing multiple versions of a tool by pointing a generic path like `/usr/bin/python` to a specific installed version, so upgrades just mean updating the symlink."
+
+---
+
+
