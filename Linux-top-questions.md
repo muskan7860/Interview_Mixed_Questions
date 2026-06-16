@@ -206,5 +206,129 @@ This is a fundamentals check — they want to see if you understand HOW Linux ac
 > "A hard link is another directory entry pointing to the exact same inode as the original file — they're indistinguishable from each other, there's no original versus copy. Deleting one doesn't affect the other, since the actual data is only removed when ALL hard links to it are deleted. It can't span across filesystems and can't point to a directory. A symbolic link is a completely separate, small file that just stores a path to the target — it CAN cross filesystems and CAN point to a directory, but if the target is deleted or moved, the symlink becomes a dangling reference pointing to nothing. In practice, I use symlinks far more often — for example, managing multiple versions of a tool by pointing a generic path like `/usr/bin/python` to a specific installed version, so upgrades just mean updating the symlink."
 
 ---
+# LINUX — TOP 20 INTERVIEW QUESTIONS — BATCH 3 (Q11-15)
+*Same story-style format: Easy Explanation → What Interviewer is Testing → Interview Answer*
+
+---
+
+## Q11. What's the difference between `systemctl start`, `enable`, and `status`?
+
+### Easy Explanation — The School Story
+Think of a teacher (a service, like Nginx or your application) who works at the school. There are three completely different questions you can ask about this teacher:
+
+`systemctl start <service>` is like saying: **"Come into the school RIGHT NOW and start working today."** It only affects today — it doesn't promise anything about tomorrow. If the school reboots (restarts) tonight, this teacher will NOT automatically come back tomorrow unless someone tells them to start again.
+
+`systemctl enable <service>` is like adding the teacher's name to the **permanent staff roster**: "From now on, every single morning when the school opens, automatically call this teacher to come in." This doesn't make them start working TODAY — it just registers them for ALL future school openings (reboots). This is why a very common mistake is running `enable` but forgetting to also run `start` — the teacher is registered for tomorrow, but hasn't shown up today.
+
+`systemctl status <service>` is simply **asking the office**: "Is this teacher currently in the building right now? Are they actively working, or sitting idle, or did they collapse/fail?" It gives you a live snapshot — running, stopped, failed, along with recent activity logs.
+
+**The senior-level habit:** when you want a service to survive reboots AND work immediately, you run BOTH: `systemctl enable --now <service>` does both jobs in one command — "add to permanent roster AND start working today."
+
+### What the Interviewer is Testing
+This question catches people who only know commands superficially. A common junior mistake is "I ran `start` but after the server rebooted, the service was down" — and they don't know why. The interviewer wants to confirm you understand the difference between "running now" and "configured to run on boot."
+
+### How to Answer in Interview
+> "`systemctl start` immediately starts the service for the current session, but it won't persist across a reboot. `systemctl enable` configures the service to automatically start on every future boot, but doesn't start it right now if it isn't already running. `systemctl status` shows the current live state of the service — active, inactive, or failed — along with recent log entries. In practice, after deploying a new service, I'd run `systemctl enable --now <service>` to both start it immediately and ensure it survives future reboots, then confirm with `status` that it's actually healthy."
+
+---
+
+## Q12. How do you check logs on a Linux server, and what's the difference between `/var/log` files and `journalctl`?
+
+### Easy Explanation — The School Story
+Every school keeps records of what happens day to day — this is **logging**. But there are actually two different record-keeping systems running side by side in modern Linux schools.
+
+**`/var/log`** is like the **old-style physical record books** kept in the store room — separate notebooks for separate purposes: one notebook for attendance (`/var/log/auth.log` for login attempts), one for general school happenings (`/var/log/syslog` or `/var/log/messages`), one specifically for the cafeteria (`/var/log/nginx/access.log` if Nginx is your web server). Many applications still write their own notebook here, in plain text, which you can read with simple tools like `cat`, `tail`, or `grep`.
+
+**`journalctl`** is the **newer, centralized digital record system** that comes with systemd (the Head Teacher from our boot story). Instead of dozens of separate physical notebooks scattered around, systemd keeps ONE unified, searchable digital database of everything that's happened — every service start, stop, crash, and message — all in one place, with proper timestamps and structure. You query it with commands instead of manually opening files.
+
+**Why both exist:** Some older or third-party applications still insist on writing their own notebook in `/var/log` out of habit, while modern systemd-managed services log directly into the journal. As a DevOps engineer, you genuinely need both skills — you can't assume everything is in one place.
+
+**Common practical commands:**
+- `journalctl -u nginx` — show logs for just the Nginx service
+- `journalctl -xb` — show logs from the most recent boot, with extra explanation for failures (this is your boot-troubleshooting tool from Q1!)
+- `tail -f /var/log/syslog` — live-watch a traditional log file as new lines get added
+
+### What the Interviewer is Testing
+This tests whether you actually know how to FIND information when something breaks — "where do I even look" is half the battle in real troubleshooting. It also reveals if you're aware that Linux logging has evolved (older `/var/log` text files vs newer systemd journal), which is a subtle but real signal of hands-on experience versus textbook knowledge.
+
+### How to Answer in Interview
+> "Traditional logs live as plain text files under `/var/log` — things like `/var/log/auth.log` for authentication attempts or application-specific logs like Nginx's access and error logs. I'd use `tail -f` to watch them live, or `grep` to search for specific errors. On modern systemd-based systems, `journalctl` provides a centralized, structured log of everything systemd manages — I'd use `journalctl -u <service-name>` to see logs for a specific service, or `journalctl -xb` to review logs from the most recent boot when troubleshooting a startup failure. In practice, I check both, since not every application logs through the journal."
+
+---
+
+## Q13. What is a Cron Job, and how do you schedule one?
+
+### Easy Explanation — The School Story
+Imagine the school has certain tasks that need to happen automatically, on a fixed schedule, without anyone manually reminding the staff every time — like "ring the bell every day at exactly 8:00 AM" or "clean the classrooms every Sunday at midnight." You don't want a human standing there every single day triggering this manually — you want an automatic timetable system.
+
+**Cron** is exactly this — a built-in scheduling system in Linux that automatically triggers tasks at fixed times, completely on its own, without anyone present. The actual timetable (list of scheduled tasks) is called the **crontab** (cron table).
+
+A crontab entry has 5 time fields followed by the command to run:
+```
+minute  hour  day-of-month  month  day-of-week   command
+  0      8        *          *         *         /path/to/ring_bell.sh
+```
+This example means: "At minute 0, hour 8 (so exactly 8:00 AM), every day of the month, every month, every day of the week — run this script." The asterisk (`*`) means "doesn't matter, every single one."
+
+**Real DevOps use cases:** scheduling nightly backups, rotating/cleaning old log files automatically, running a health-check script every 5 minutes, triggering a nightly data sync job.
+
+**Common commands:**
+- `crontab -e` — edit your personal schedule (opens an editor)
+- `crontab -l` — list your currently scheduled tasks
+- `/etc/cron.d/` — a folder where system-wide scheduled tasks can also be placed
+
+### What the Interviewer is Testing
+This is a very practical, hands-on automation question — almost every DevOps role involves SOME scheduled task at some point (backups, cleanups, health checks). They want to confirm you can actually set up basic automation without needing a full CI/CD tool for every tiny recurring task.
+
+### How to Answer in Interview
+> "Cron is Linux's built-in job scheduler for running tasks automatically at fixed times or intervals, without manual triggering. The schedule is defined in a crontab using five time fields — minute, hour, day of month, month, and day of week — followed by the command to execute. I've used cron for things like scheduling nightly backup scripts, cleaning up old log files to prevent disk space issues, and running periodic health-check scripts. I manage it with `crontab -e` to edit my schedule and `crontab -l` to review what's currently scheduled, and for system-wide jobs, entries can also be placed in `/etc/cron.d/`."
+
+---
+
+## Q14. What's the difference between `>`, `>>`, and `|` (pipe) in Linux?
+
+### Easy Explanation — The School Story
+Imagine a student writing down their homework answers. There are different ways to handle WHERE those answers go.
+
+`>` (single arrow, "redirect/overwrite") is like saying: **"Throw away whatever was previously written in this notebook, and write my NEW answer fresh, starting from page 1."** If the notebook already had something written, it's completely erased and replaced. Example: `echo "hello" > file.txt` — wipes out anything previously in `file.txt` and writes just "hello."
+
+`>>` (double arrow, "append") is like saying: **"Don't erase anything — just add my new answer at the END of whatever's already written in the notebook."** Nothing gets deleted; you're just adding more pages on top of the existing ones. Example: `echo "hello" >> file.txt` — keeps everything already in the file and adds "hello" as a new line at the end.
+
+`|` (the pipe symbol) is completely different — it's not about saving to a notebook at all. It's like one student finishing their work and **directly handing the paper to the NEXT student**, who then continues working on exactly that paper, without it ever touching a notebook in between. Example: `ps aux | grep nginx` — the first command (`ps aux`, list all processes) hands its entire output DIRECTLY to the second command (`grep nginx`, filter for the word "nginx"), and only the filtered result shows up on your screen.
+
+**Why this distinction matters practically:** Using `>` by accident when you meant `>>` is a classic, painful mistake — engineers have genuinely wiped out important log files or config files this way by overwriting instead of appending. Always pause and think which one you actually need.
+
+### What the Interviewer is Testing
+This is a basic but important practical-skills check — these symbols are used constantly in real day-to-day scripting and troubleshooting. Mixing up `>` and `>>` is a classic "this person hasn't actually written many scripts" giveaway if you get it wrong.
+
+### How to Answer in Interview
+> "`>` redirects output to a file and overwrites whatever was already there — so I'm careful with it, since using it by mistake on an important file can wipe out existing content. `>>` appends output to the end of a file without deleting existing content, which is what I'd use for something like adding a new cron job entry or accumulating log output safely. The pipe symbol, `|`, is different — it takes the output of one command and feeds it directly as input to the next command, without writing to a file at all. For example, `ps aux | grep nginx` lists all running processes and pipes that list directly into `grep` to filter for just the Nginx-related lines."
+
+---
+
+## Q15. What is SSH, and how does SSH key-based authentication work (vs password authentication)?
+
+### Easy Explanation — The School Story
+Imagine you want to visit a friend's school, located in a completely different city, to check on something. You can't just walk in — you need a secure way to prove who you are and to make sure nobody eavesdrops on your conversation along the way. **SSH (Secure Shell)** is exactly this secure, encrypted communication channel that lets you remotely log into and control another server, with everything you type and see being scrambled (encrypted) so nobody snooping on the network can read it.
+
+Now, HOW do you prove your identity to get in? There are two methods:
+
+**Password authentication** is like showing up at the gate and saying a secret PASSWORD out loud: "Let me in, the password is 12345." The problem: passwords can be overheard, guessed, or brute-forced (someone trying thousands of combinations rapidly), and you have to type/remember it every single time.
+
+**SSH key-based authentication** works completely differently, using something called a **key pair** — two mathematically related files: a **private key** (which YOU keep secret, never share, stays only on your own laptop) and a **public key** (which you're free to share, and which gets placed on the server you want to access, inside a file called `~/.ssh/authorized_keys`).
+
+Think of it like a special lock-and-key system: the server has a special LOCK installed (the public key) on its gate. You carry the only matching KEY (the private key) that can open that specific lock. When you try to connect, the server doesn't ask "tell me a secret word" — instead, it sends you a locked challenge that ONLY your specific private key can unlock and respond to correctly. If your private key successfully proves it can solve that challenge, you're let in — without ever transmitting the actual key itself over the network, and without ever typing a guessable password.
+
+**Why this is more secure and preferred in DevOps:** there's no password to steal or guess over the network, and you can instantly revoke someone's access by simply removing their public key from the server's `authorized_keys` file — no need to change a shared password that everyone else also uses.
+
+### What the Interviewer is Testing
+SSH access is fundamental to literally every DevOps task — deploying code, debugging servers, running Ansible playbooks. They want to confirm you understand WHY key-based auth is preferred (security reasoning), not just that you know the command `ssh-keygen`. This also signals whether you understand basic security hygiene, which matters a lot at the "trustworthy mid-level engineer" stage.
+
+### How to Answer in Interview
+> "SSH, Secure Shell, provides an encrypted channel for remotely accessing and controlling a server, so commands and output can't be intercepted in plain text over the network. For authentication, password-based login means typing a secret that travels with each login attempt, and it's vulnerable to brute-forcing or being overheard. SSH key-based authentication instead uses an asymmetric key pair — a private key kept only on my machine, and a public key placed on the server's `authorized_keys` file. When connecting, the server issues a cryptographic challenge that only my private key can correctly respond to, so I get authenticated without ever transmitting a password or the private key itself over the network. This is why most production environments disable password authentication entirely and rely only on key-based access — it's both more secure and easier to manage, since revoking access just means removing a public key, not rotating a shared password."
+
+---
+
+*[End of Batch 3 — Q11 to Q15. That's 15 of 20 Linux questions done. Say "next batch" for the final Q16-20.]*
 
 
