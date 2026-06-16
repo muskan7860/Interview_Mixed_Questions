@@ -1,4 +1,4 @@
-# Linux Boot Process — Explained Like a Student's First Day at School
+# Linux Boot Process — Explained 
 
 > Full forms first, so nothing feels like an unknown short-form while reading:
 > - **BIOS** = Basic Input/Output System
